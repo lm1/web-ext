@@ -224,11 +224,27 @@ describe('utils/adb', () => {
       });
 
       sinon.assert.calledOnce(adb.fakeADBDevice.shell);
+    });
+
+    it('retrieves current user', async () => {
+      const adb = getFakeADBKit({
+        adbkitUtil: {
+          readAll: sinon.spy(() => {
+            return Promise.resolve(Buffer.from('0\n'));
+          }),
+        },
+      });
+
+      const adbUtils = new ADBUtils({ adb });
+      const promise = adbUtils.getCurrentUser();
+
+      sinon.assert.calledOnce(adb.fakeADBDevice.shell);
       sinon.assert.calledWith(adb.fakeADBDevice.shell, [
-        'pm',
-        'list',
-        'packages',
+        'am',
+        'get-current-user',
       ]);
+      const result = await assert.isFulfilled(promise);
+      assert.equal(result, 0);
     });
 
     it('resolves the array of the installed firefox APKs', async () => {
@@ -242,11 +258,25 @@ describe('utils/adb', () => {
           }),
         },
       });
+
+      const stubGetCurrentUser = sinon.stub(
+        ADBUtils.prototype,
+        'getCurrentUser',
+      );
+      stubGetCurrentUser.resolves(0);
+
       const adbUtils = new ADBUtils({ adb });
 
       const promise = adbUtils.discoverInstalledFirefoxAPKs('device1');
       const packages = await assert.isFulfilled(promise);
       sinon.assert.calledOnce(adb.fakeADBDevice.shell);
+      sinon.assert.calledWith(adb.fakeADBDevice.shell, [
+        'pm',
+        'list',
+        'packages',
+        '--user',
+        '0',
+      ]);
       sinon.assert.calledOnce(adb.util.readAll);
       assert.deepEqual(packages, ['org.mozilla.fennec', 'org.mozilla.firefox']);
     });

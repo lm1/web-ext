@@ -65,7 +65,7 @@ export default class ADBUtils {
   runShellCommand(deviceId, cmd) {
     const { adb, adbClient } = this;
 
-    log.debug(`Run adb shell command on ${deviceId}: ${JSON.stringify(cmd)}`);
+    log.info(`Run adb shell command on ${deviceId}: ${JSON.stringify(cmd)}`);
 
     return wrapADBCall(async () => {
       return await adbClient
@@ -86,13 +86,31 @@ export default class ADBUtils {
     return devices.map((dev) => dev.id);
   }
 
-  async discoverInstalledFirefoxAPKs(deviceId, firefoxApk) {
-    log.debug(`Listing installed Firefox APKs on ${deviceId}`);
+  async getCurrentUser(deviceId) {
+    log.debug(`Retreiving current user on ${deviceId}`);
 
+    const currentUser = await this.runShellCommand(deviceId, [
+      'am',
+      'get-current-user',
+    ]);
+
+    const userId = parseInt(currentUser.trim());
+    if (isNaN(userId)) {
+      throw new WebExtError(`Unable to retreive current user on ${deviceId}`);
+    }
+    return userId;
+  }
+
+  async discoverInstalledFirefoxAPKs(deviceId, firefoxApk) {
+    const userId = await this.getCurrentUser(deviceId);
+
+    log.debug(`Listing installed Firefox APKs on ${deviceId}`);
     const pmList = await this.runShellCommand(deviceId, [
       'pm',
       'list',
       'packages',
+      '--user',
+      `${userId}`,
     ]);
 
     return pmList
